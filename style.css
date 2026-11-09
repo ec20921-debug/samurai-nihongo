@@ -191,9 +191,9 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 .cg-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 18px, rgba(255,255,255,.18) 18px 20px, transparent 20px 46px); transform: translateX(100%); opacity: 0; }
 .carget.show .cg-lines { animation: cgLines .9s ease-out .1s; }
 @keyframes cgLines { 0% { transform: translateX(100%); opacity: .9; } 100% { transform: translateX(-100%); opacity: 0; } }
-.cg-shine { position: absolute; top: -20%; bottom: -20%; width: 35%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); transform: skewX(-20deg); mix-blend-mode: screen; }
+.cg-shine { position: absolute; top: -20%; bottom: -20%; width: 35%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); transform: skewX(-20deg); mix-blend-mode: screen; opacity: 0; }
 .carget.show .cg-shine { animation: cgShine .8s ease-in-out 1.35s; }
-@keyframes cgShine { 0% { left: -40%; } 100% { left: 110%; } }
+@keyframes cgShine { 0% { left: -40%; opacity: 1; } 100% { left: 110%; opacity: 1; } }
 .cg-title { margin-top: 18px; font-size: 30px; font-weight: 900; letter-spacing: .5px; opacity: 0; transform: scale(.6); }
 .cg-title span { color: var(--gold); }
 .carget.show .cg-title { animation: cgPop .45s cubic-bezier(.3,1.6,.5,1) 1.15s forwards; }
