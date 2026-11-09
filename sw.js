@@ -1,6 +1,6 @@
 // SAMURAI NIHONGO service worker — 本体をスマホに保存して、電波がなくても開けるようにする
-const CACHE = 'snh-v2';
-const SHELL = ['./', './index.html', './style.css?v=2', './app.js?v=2', './data.js?v=2', './config.js?v=2', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png'];
+const CACHE = 'snh-v3';
+const SHELL = ['./', './index.html', './style.css?v=3', './app.js?v=3', './data.js?v=3', './config.js?v=3', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
