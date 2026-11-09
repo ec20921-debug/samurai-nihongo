@@ -1,6 +1,6 @@
 // SAMURAI NIHONGO service worker — 本体をスマホに保存して、電波がなくても開けるようにする
-const CACHE = 'snh-v6';
-const SHELL = ['./', './index.html', './style.css?v=6', './app.js?v=6', './data.js?v=6', './config.js?v=6', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './cars/car0.webp?v=1', './cars/car1.webp?v=1', './cars/car2.webp?v=1', './cars/car3.webp?v=1', './cars/car4.webp?v=1', './cars/car5.webp?v=1', './cars/car6.webp?v=1', './cars/car7.webp?v=1'];
+const CACHE = 'snh-v7';
+const SHELL = ['./', './index.html', './style.css?v=7', './app.js?v=7', './data.js?v=7', './config.js?v=7', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './cars/car0.webp?v=1', './cars/car1.webp?v=1', './cars/car2.webp?v=1', './cars/car3.webp?v=1', './cars/car4.webp?v=1', './cars/car5.webp?v=1', './cars/car6.webp?v=1', './cars/car7.webp?v=1'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });

@@ -634,6 +634,7 @@
       ['read', '👀', T.gRead, 'よんで えらぶ', has],
       ['reverse', '🇰🇭➡️🇯🇵', T.gReverse, 'クメールご → にほんご', has],
       ['kana', 'あ', T.gKana, 'ひらがな', true],
+      ['book', '📋', MENU_BOOK.title, 'メニュー ずかん', true],
       ['menu', '🚗', T.gMenu, 'メニュー・ねだん', true],
       ['speak', '🎤', T.gSpeak, 'まねして いおう', has],
       ['weak', '🎯', T.gWeak, 'にがて', weakWords().length > 0],
@@ -652,14 +653,47 @@
     sfx.tap();
     const pool = learnedWords();
     if (g === 'kana') return startKana(false);
+    if (g === 'book') return renderMenuBook();
     if (g === 'menu') {
-      const qs = pick(MENU_QUIZ, 8).map(menuQ);
+      const qs = pick(MENU_QUIZ, 10).map(menuQ);
       return runQuiz({ title: 'MENU', game: 'menu', questions: qs, onDone: (r) => { if (r.perfect) { S.menuPerfect = true; save(); } } });
     }
     if (g === 'speak') return speakPractice(pick(pool, 10));
     if (g === 'weak') return runQuiz({ title: 'にがて', game: 'weak', questions: weakWords().slice(0, 10).map((w) => wordQ(w)) });
     const items = pick(pool, 10);
     runQuiz({ title: g, game: g, questions: items.map((w) => wordQ(w, g)) });
+  }
+  // ---------- メニュー図鑑（サービスの中身・料金・4つのルール・予約の流れ）----------
+  function renderMenuBook() {
+    const B = MENU_BOOK;
+    const km = (x) => esc(x).replace(/\n/g, '<br>');
+    const price = (pr) => Array.isArray(pr) ? `<div class="mb-price"><span><small>Sedan</small>${esc(pr[0])}</span><span><small>SUV</small>${esc(pr[1])}</span></div>` : (pr ? `<div class="mb-price"><span>${esc(pr)}</span></div>` : '');
+    app.innerHTML = `
+      <button class="btn small" id="mbBack">◀ ${esc(T.games)}</button>
+      <h1 class="page km">📋 ${esc(B.title)}</h1>
+      <p class="km dim mb-head">${esc(B.priceHead)}</p>
+      ${B.groups.map((gr) => `
+        <section class="card mb-group">
+          <h2>${esc(gr.head)}</h2>
+          ${gr.warn ? `<p class="km mb-warn">⚠️ ${km(gr.warn)}</p>` : ''}
+          ${gr.items.map((it) => `
+            <div class="mb-item">
+              <div class="mb-name"><b>${esc(it.name)}</b><button class="mb-jp" data-say="${esc(it.jp)}">🔊 ${esc(it.jp)}</button></div>
+              <p class="km">${km(it.km)}</p>
+              ${price(it.price)}
+            </div>`).join('')}
+          ${gr.table ? `<table class="mb-table"><tr><th></th><th>POLISH</th><th>DEEP</th></tr>${gr.table.map((r) => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</table>` : ''}
+          ${gr.note ? `<p class="km dim mb-note">⌂ ${km(gr.note)}</p>` : ''}
+        </section>`).join('')}
+      <section class="card mb-group"><h2>FREE QUOTE</h2><p class="km">${km(B.quote)}</p></section>
+      <section class="card mb-group"><h2 class="km">⚔️ ${esc(B.rulesTitle)}</h2>${B.rules.map((r) => `<p class="km mb-rule">${km(r)}</p>`).join('')}</section>
+      <section class="card mb-group"><h2 class="km">📱 ${esc(B.bookTitle)}</h2><p class="km">${km(B.booking)}</p><p class="km dim">💳 ${km(B.pay)}</p></section>
+      <button class="btn primary" id="mbQuiz">🚗 ${esc(T.gMenu)} ▶</button>
+      <div id="sync" class="sync"></div>`;
+    window.scrollTo(0, 0);
+    app.querySelector('#mbBack').onclick = () => { sfx.tap(); render(); };
+    app.querySelector('#mbQuiz').onclick = () => startGame('menu');
+    app.querySelectorAll('.mb-jp').forEach((b) => (b.onclick = () => speak(b.dataset.say)));
   }
   function speakPractice(items) {
     let i = 0;

@@ -202,3 +202,22 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 .carget.show .cg-sub { animation: cgPop .4s ease-out 1.4s forwards; }
 .cg-ok { max-width: 320px; margin-top: 18px; }
 @media (prefers-reduced-motion: reduce) { .carget.show .cg-car, .carget.show .cg-lines, .carget.show .cg-shine, .hero-car { animation: none; } .cg-car { transform: none; filter: none; } .carget.show .cg-title, .carget.show .cg-sub { animation: none; opacity: 1; transform: none; } }
+
+/* ---------- メニュー図鑑 ---------- */
+.mb-head { margin: -6px 0 6px; font-size: 13px; }
+.mb-group h2 { font-size: 15px; letter-spacing: 1px; color: var(--gold); margin: 0 0 8px; }
+.mb-item { padding: 10px 0; border-top: 1px solid var(--line); }
+.mb-item:first-of-type { border-top: 0; }
+.mb-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mb-jp { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; color: var(--tx); }
+.mb-item p { margin: 6px 0 4px; font-size: 14px; }
+.mb-price { display: flex; gap: 8px; }
+.mb-price span { background: #2a2210; color: var(--gold); border-radius: 10px; padding: 4px 10px; font-weight: 800; font-size: 16px; }
+.mb-price small { color: var(--dim); font-weight: 400; font-size: 11px; margin-right: 6px; }
+.mb-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 14px; }
+.mb-table th, .mb-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+.mb-table th:first-child, .mb-table td:first-child { text-align: left; }
+.mb-table th { color: var(--dim); font-weight: 600; }
+.mb-warn { background: rgba(229,72,77,.12); border: 1px solid rgba(229,72,77,.4); border-radius: 12px; padding: 8px 10px; font-size: 13px; margin: 0 0 6px; }
+.mb-note { font-size: 12px; margin-top: 8px; }
+.mb-rule { margin: 6px 0; font-size: 14px; }
