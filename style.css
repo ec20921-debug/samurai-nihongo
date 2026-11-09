@@ -174,3 +174,31 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 @keyframes fall { to { transform: translateY(110vh) rotate(540deg); } }
 .toast { position: fixed; left: 50%; top: 18%; transform: translate(-50%, -10px) scale(.9); opacity: 0; background: #1f2638; border: 2px solid var(--gold); border-radius: 18px; padding: 16px 22px; text-align: center; font-size: 18px; font-weight: 700; z-index: 60; transition: all .3s; max-width: 86vw; font-family: var(--km); line-height: 1.6; }
 .toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+/* ---------- 乗り物（ガレージ・GET の演出） ---------- */
+.hero-car { display: block; width: 72%; max-width: 260px; margin: 4px auto 2px; animation: carIdle 3.2s ease-in-out infinite; filter: drop-shadow(0 10px 14px rgba(0,0,0,.5)); border-radius: 14px; -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 55%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse 70% 70% at 50% 55%, #000 60%, transparent 100%); }
+@keyframes carIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.garage-car { width: 84px; height: 63px; object-fit: cover; border-radius: 10px; flex: none; }
+.beltline.locked .garage-car { filter: grayscale(1) brightness(.35) blur(2.5px); }
+.beltline.locked { opacity: .55; }
+.carget { position: fixed; inset: 0; z-index: 70; background: radial-gradient(ellipse at 50% 40%, #1d2434 0%, #07090e 75%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity .3s; text-align: center; }
+.carget.show { opacity: 1; }
+.cg-stage { position: relative; width: 100%; max-width: 420px; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 22px; }
+.cg-car { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: translateX(-130%) skewX(-10deg); filter: blur(6px); -webkit-mask-image: radial-gradient(ellipse 75% 75% at 50% 55%, #000 62%, transparent 100%); mask-image: radial-gradient(ellipse 75% 75% at 50% 55%, #000 62%, transparent 100%); }
+.carget.show .cg-car { animation: cgDrive 1.1s cubic-bezier(.2,.9,.25,1.15) .15s forwards, cgBounce .5s ease-out 1.25s; }
+@keyframes cgDrive { 0% { transform: translateX(-130%) skewX(-10deg); filter: blur(6px); } 70% { transform: translateX(4%) skewX(3deg); filter: blur(0); } 100% { transform: translateX(0) skewX(0); filter: blur(0); } }
+@keyframes cgBounce { 0% { transform: translateY(0); } 35% { transform: translateY(5px) scaleY(.985); } 70% { transform: translateY(-2px); } 100% { transform: translateY(0); } }
+.cg-lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 18px, rgba(255,255,255,.18) 18px 20px, transparent 20px 46px); transform: translateX(100%); opacity: 0; }
+.carget.show .cg-lines { animation: cgLines .9s ease-out .1s; }
+@keyframes cgLines { 0% { transform: translateX(100%); opacity: .9; } 100% { transform: translateX(-100%); opacity: 0; } }
+.cg-shine { position: absolute; top: -20%; bottom: -20%; width: 35%; left: -40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); transform: skewX(-20deg); mix-blend-mode: screen; }
+.carget.show .cg-shine { animation: cgShine .8s ease-in-out 1.35s; }
+@keyframes cgShine { 0% { left: -40%; } 100% { left: 110%; } }
+.cg-title { margin-top: 18px; font-size: 30px; font-weight: 900; letter-spacing: .5px; opacity: 0; transform: scale(.6); }
+.cg-title span { color: var(--gold); }
+.carget.show .cg-title { animation: cgPop .45s cubic-bezier(.3,1.6,.5,1) 1.15s forwards; }
+@keyframes cgPop { to { opacity: 1; transform: scale(1); } }
+.cg-sub { margin-top: 6px; color: var(--dim); font-size: 16px; opacity: 0; }
+.carget.show .cg-sub { animation: cgPop .4s ease-out 1.4s forwards; }
+.cg-ok { max-width: 320px; margin-top: 18px; }
+@media (prefers-reduced-motion: reduce) { .carget.show .cg-car, .carget.show .cg-lines, .carget.show .cg-shine, .hero-car { animation: none; } .cg-car { transform: none; filter: none; } .carget.show .cg-title, .carget.show .cg-sub { animation: none; opacity: 1; transform: none; } }

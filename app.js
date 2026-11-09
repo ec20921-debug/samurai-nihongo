@@ -149,6 +149,22 @@
     document.body.appendChild(box);
     setTimeout(() => box.remove(), 3200);
   }
+  // ---------- 乗り物 GET の演出 ----------
+  const carSrc = (j) => `cars/car${j}.webp?v=1`;
+  function carGet(j) {
+    const b = BELTS[j];
+    const o = document.createElement('div'); o.className = 'carget';
+    o.innerHTML = `
+      <div class="cg-stage"><i class="cg-lines"></i><img class="cg-car" src="${carSrc(j)}" alt=""><i class="cg-shine"></i></div>
+      <div class="cg-title">${esc(b[1])} <span>GET!</span></div>
+      <div class="km cg-sub">${esc(T.beltUp)}<br><b>${esc(b[2])}</b></div>
+      <button class="btn primary cg-ok">OK ▶</button>`;
+    document.body.appendChild(o);
+    requestAnimationFrame(() => o.classList.add('show'));
+    setTimeout(() => { confetti(60); speak(b[1]); }, 1100);
+    const close = () => { o.classList.remove('show'); setTimeout(() => o.remove(), 350); };
+    o.querySelector('.cg-ok').onclick = close;
+  }
   function toast(html, ms = 2200) {
     const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html;
     document.body.appendChild(t);
@@ -164,7 +180,7 @@
     const after = beltIdx();
     if (after > before) {
       const b = BELTS[after];
-      setTimeout(() => { sfx.win(); confetti(60); toast(`${b[3]} ${esc(T.beltUp)}<br><b>${esc(b[1])}</b><br><span class="km">${esc(b[2])}</span>`, 3500); }, 600);
+      setTimeout(() => { sfx.win(); carGet(after); }, 600);
       logEvent('belt', { belt: b[1] });
     }
   }
@@ -343,6 +359,7 @@
           <div class="stat"><b>📗 ${learnedWords().length}</b><small class="km">${esc(T.words)}</small></div>
         </div>
         <div class="belt">
+          <img class="hero-car" src="${carSrc(bi)}" alt="">
           <div class="belt-row"><span class="rank-ico">${b[3]}</span><b>${esc(b[1])}</b><small class="km">${esc(b[2])}</small></div>
           <div class="bar"><i style="width:${pct}%"></i></div>
           <small class="km dim">${nb ? `${esc(T.toNext)}: ${nb[0] - S.xp} XP` : esc(T.topDone)}</small>
@@ -705,7 +722,7 @@
       </div>
       <section class="card">
         <h2 class="km">🏎️ ${esc(T.belt)}</h2>
-        <div class="belts">${BELTS.map((b, j) => `<div class="beltline ${j <= bi ? 'got' : ''}"><span class="rank-ico">${b[3]}</span><span>${esc(b[1])}<br><small class="km">${esc(b[2])}</small></span><small>${b[0]} XP</small></div>`).join('')}</div>
+        <div class="belts">${BELTS.map((b, j) => `<div class="beltline ${j <= bi ? 'got' : 'locked'}"><img class="garage-car" src="${carSrc(j)}" alt="" loading="lazy"><span>${j <= bi ? esc(b[1]) : '？？？'}<br><small class="km">${j <= bi ? esc(b[2]) : ''}</small></span><small>${b[0]} XP</small></div>`).join('')}</div>
       </section>
       <section class="card">
         <h2 class="km">${esc(T.calendar)}</h2>
