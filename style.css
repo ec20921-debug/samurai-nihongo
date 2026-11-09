@@ -38,6 +38,7 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 .belt { margin-top: 12px; }
 .belt-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .belt-row small { color: var(--dim); }
+.rank-ico { font-size: 22px; line-height: 1; min-width: 28px; text-align: center; }
 .belt-chip { display: inline-block; width: 34px; height: 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,.35); }
 .bar { height: 10px; background: rgba(255,255,255,.08); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
 .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), #ff8c2b); border-radius: 6px; transition: width .5s; }

@@ -164,7 +164,7 @@
     const after = beltIdx();
     if (after > before) {
       const b = BELTS[after];
-      setTimeout(() => { sfx.win(); confetti(60); toast(`🥋 ${esc(T.beltUp)}<br><b>${esc(b[1])}</b><br><span class="km">${esc(b[2])}</span>`, 3500); }, 600);
+      setTimeout(() => { sfx.win(); confetti(60); toast(`${b[3]} ${esc(T.beltUp)}<br><b>${esc(b[1])}</b><br><span class="km">${esc(b[2])}</span>`, 3500); }, 600);
       logEvent('belt', { belt: b[1] });
     }
   }
@@ -343,9 +343,9 @@
           <div class="stat"><b>📗 ${learnedWords().length}</b><small class="km">${esc(T.words)}</small></div>
         </div>
         <div class="belt">
-          <div class="belt-row"><span class="belt-chip" style="background:${b[3]}"></span><b>${esc(b[1])}</b><small class="km">${esc(b[2])}</small></div>
+          <div class="belt-row"><span class="rank-ico">${b[3]}</span><b>${esc(b[1])}</b><small class="km">${esc(b[2])}</small></div>
           <div class="bar"><i style="width:${pct}%"></i></div>
-          <small class="km dim">${nb ? `${esc(T.toNext)}: ${nb[0] - S.xp} XP` : esc(T.goal)}</small>
+          <small class="km dim">${nb ? `${esc(T.toNext)}: ${nb[0] - S.xp} XP` : esc(T.topDone)}</small>
         </div>
       </header>
       <section class="card mission ${d.done ? 'clear' : ''}">
@@ -704,8 +704,8 @@
         <div class="tile"><b>${Math.round(sec / 60)}</b><small class="km">${esc(T.minutes)}</small></div>
       </div>
       <section class="card">
-        <h2 class="km">🥋 ${esc(T.belt)}</h2>
-        <div class="belts">${BELTS.map((b, j) => `<div class="beltline ${j <= bi ? 'got' : ''}"><span class="belt-chip" style="background:${b[3]}"></span><span>${esc(b[1])}</span><small>${b[0]} XP</small></div>`).join('')}</div>
+        <h2 class="km">🏎️ ${esc(T.belt)}</h2>
+        <div class="belts">${BELTS.map((b, j) => `<div class="beltline ${j <= bi ? 'got' : ''}"><span class="rank-ico">${b[3]}</span><span>${esc(b[1])}<br><small class="km">${esc(b[2])}</small></span><small>${b[0]} XP</small></div>`).join('')}</div>
       </section>
       <section class="card">
         <h2 class="km">${esc(T.calendar)}</h2>
