@@ -281,10 +281,9 @@
   window.addEventListener('online', flushSoon);
 
   // ---------- 使った時間（v9: 画面を触っている間だけ数える。開きっぱなしは数えない。1日30分が目標）----------
-  let lastTouch = Date.now(); let actSec = 0;
+  let lastTouch = 0; let actSec = 0; // 最初に画面を触るまでは数えない
   ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
   function sessionEnd() {
-    if (actSec < 5) return;
     const sec = actSec; actSec = 0;
     if (sec >= 20) logEvent('session', { sec });
     save(); flush();
@@ -292,7 +291,7 @@
   setInterval(() => {
     if (document.hidden || !S.welcomed || Date.now() - lastTouch > 60 * 1000) return;
     actSec += 5; day().sec += 5;
-    if (day().sec % 60 === 0) save();
+    if (actSec % 60 === 0) save();
     check30();
     const el = document.getElementById('t30'); if (el) el.innerHTML = t30Inner();
   }, 5000);
