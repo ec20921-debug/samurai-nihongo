@@ -4,7 +4,7 @@
 (() => {
   'use strict';
   const CFG = window.SNH_CONFIG || {};
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0'; // v9: N5 への道・1日30分・カタカナ・車カード・端末の登録
   const LS_KEY = 'snh_state_v1';
   const Q_KEY = 'snh_queue_v1';
   const app = document.getElementById('app');
@@ -193,6 +193,7 @@
   }
   function checkBadges() {
     if (Object.keys(S.days).some(studied)) award('first');
+    const hiraTotal = KANA.filter((k) => k.row < HIRA_ROWS).length; // バッジ「ひらがな」はひらがなだけで数える（v9 でカタカナを追加）
     const st = streak();
     if (st >= 3) award('streak3');
     if (st >= 7) award('streak7');
@@ -200,9 +201,9 @@
     const lw = learnedWords().length;
     if (lw >= 30) award('words30');
     if (lw >= 80) award('words80');
-    const lk = learnedKana().length;
-    if (lk >= Math.ceil(KANA.length / 2)) award('kanaHalf');
-    if (lk >= KANA.length) award('kanaAll');
+    const lk = learnedKana().filter((k) => k.row < HIRA_ROWS).length;
+    if (lk >= Math.ceil(hiraTotal / 2)) award('kanaHalf');
+    if (lk >= hiraTotal) award('kanaAll');
     if (S.menuPerfect) award('menu');
     if (S.real >= 5) award('real5');
   }
@@ -232,6 +233,10 @@
       lesson: S.lesson, lessonTotal: LESSONS.length, kanaRows: S.kanaRows,
       words: learnedWords().length, wordsMastered: mastered(learnedWords()).length, wordsTotal: WORDS.length,
       kana: learnedKana().length, kanaMastered: mastered(learnedKana()).length, kanaTotal: KANA.length,
+      hira: mastered(learnedKana().filter((k) => k.row < HIRA_ROWS)).length, kata: mastered(learnedKana().filter((k) => k.row >= HIRA_ROWS)).length,
+      hiraTotal: KANA.filter((k) => k.row < HIRA_ROWS).length, kataTotal: KANA.filter((k) => k.row >= HIRA_ROWS).length,
+      week: weekNo(), stage: stageOf(weekNo()).en, dailyMin: DAILY_MIN, carCards: (S.carCards || []).length,
+      weak: weakWords().slice(0, 5).map((w) => [w.jp, w.km, card(w.id).c, card(w.id).w]),
       real: S.real, badges: Object.keys(S.badges),
       days,
       cards: Object.keys(S.cards).filter((id) => S.cards[id].i).map((id) => {
@@ -257,9 +262,12 @@
         const sent = new Set(batch.map((e) => e.id));
         const rest = loadQueue().filter((e) => !sent.has(e.id));
         saveQueue(rest);
-        S.lastSync = Date.now(); save();
+        S.lastSync = Date.now(); S.syncError = ''; save();
         failN = 0;
         if (rest.length) setTimeout(flush, 400);
+      } else if (j && j.error === 'device') {
+        // v9: シートに登録されたスマホ（最初の1台）ではない。記録はスマホにためておく
+        S.syncError = 'device'; save();
       } else { retryLater(); }
     } catch (e) { retryLater(); /* 圏外など。次にまとめて送る */ } finally { clearTimeout(tmo); flushing = false; syncLabel(); }
   }
@@ -267,26 +275,107 @@
     const el = document.getElementById('sync'); if (!el) return;
     if (!CFG.GAS_URL) { el.textContent = ''; return; }
     const n = loadQueue().length;
-    el.textContent = n ? `⏳ ${T.waiting} (${n})` : S.lastSync ? `✓ ${T.synced}` : '';
+    if (S.syncError === 'device') { el.textContent = `⚠️ device ${S.device.slice(-6)}`; return; }
+    el.textContent = n ?`⏳ ${T.waiting} (${n})` : S.lastSync ? `✓ ${T.synced}` : '';
   }
   window.addEventListener('online', flushSoon);
 
-  // ---------- 使った時間 ----------
-  let sessStart = 0;
-  function sessionBegin() { if (!sessStart) sessStart = Date.now(); }
+  // ---------- 使った時間（v9: 画面を触っている間だけ数える。開きっぱなしは数えない。1日30分が目標）----------
+  let lastTouch = Date.now(); let actSec = 0;
+  ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
   function sessionEnd() {
-    if (!sessStart) return;
-    const sec = Math.min(90 * 60, Math.round((Date.now() - sessStart) / 1000));
-    sessStart = 0;
-    if (sec < 5) return;
-    day().sec += sec; save();
+    if (actSec < 5) return;
+    const sec = actSec; actSec = 0;
     if (sec >= 20) logEvent('session', { sec });
-    flush();
+    save(); flush();
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) sessionEnd(); else { sessionBegin(); render(); } });
+  setInterval(() => {
+    if (document.hidden || !S.welcomed || Date.now() - lastTouch > 60 * 1000) return;
+    actSec += 5; day().sec += 5;
+    if (day().sec % 60 === 0) save();
+    check30();
+    const el = document.getElementById('t30'); if (el) el.innerHTML = t30Inner();
+  }, 5000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) sessionEnd(); else render(); });
   window.addEventListener('pagehide', sessionEnd);
-  sessionBegin();
-  setInterval(() => { if (!document.hidden && sessStart && Date.now() - sessStart > 5 * 60 * 1000) { sessionEnd(); sessionBegin(); } }, 60 * 1000);
+  setInterval(() => { if (actSec >= 300) sessionEnd(); }, 60 * 1000);
+
+  // ---------- 1日30分・車カード（v9）----------
+  function check30() {
+    const d = day();
+    if (d.t30 || (d.sec || 0) < DAILY_MIN * 60) return;
+    d.t30 = true; addXP(XP_30); logEvent('t30', { min: DAILY_MIN });
+    save(); sfx.win(); confetti(60);
+    setTimeout(giveCarCard, 800);
+  }
+  function t30Inner() {
+    const d = day(); const min = Math.floor((d.sec || 0) / 60);
+    const pct = Math.min(100, Math.round((min / DAILY_MIN) * 100));
+    return `<div class="t30-row"><b class="km">⏱ ${esc(T.todayTime)}</b><span class="t30-num">${min} <small>/ ${DAILY_MIN} min</small></span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <small class="km ${d.t30 ? 'okline' : 'dim'}">${d.t30 ? '🏆 ' + esc(T.done30) : '🎁 ' + esc(T.get30)}</small>`;
+  }
+  function giveCarCard() {
+    const d = day(); if (d.card != null) return;
+    S.carCards = S.carCards || [];
+    if (S.carCards.length >= CAR_CARDS.length) { d.card = -1; save(); toast(esc(T.carsAll), 3000); return; }
+    const idx = S.carCards.length; S.carCards.push(idx); d.card = idx; save();
+    logEvent('car_card', { idx, name: CAR_CARDS[idx][1] });
+    showCarCard(idx, true);
+  }
+  function showCarCard(idx, isNew) {
+    const c = CAR_CARDS[idx];
+    const o = document.createElement('div'); o.className = 'ccov';
+    o.innerHTML = `
+      <div class="ccbox ${isNew ? 'closed' : ''}">
+        <button class="cc-front"><span>🎁</span><small class="km">${esc(T.carTap)}</small></button>
+        <div class="cc-back">
+          <small class="km dim">${esc(isNew ? T.carCard : T.carBook)}</small>
+          <div class="cc-emo">${c[0]}</div><div class="cc-name">${esc(c[1])}</div>
+          <button class="say-btn cc-ja">🔊 ${esc(c[2])}</button><div class="dim cc-ro">${esc(c[3])}</div>
+          <p class="km cc-km">${esc(c[4])}</p>
+          <button class="btn primary cc-ok">OK ▶</button>
+        </div>
+      </div>`;
+    document.body.appendChild(o);
+    requestAnimationFrame(() => o.classList.add('show'));
+    const box = o.querySelector('.ccbox');
+    o.querySelector('.cc-front').onclick = () => { box.classList.remove('closed'); sfx.win(); confetti(30); speak(c[2]); };
+    if (!isNew) speak(c[2]);
+    o.querySelector('.cc-ja').onclick = () => speak(c[2]);
+    o.querySelector('.cc-ok').onclick = () => { o.classList.remove('show'); setTimeout(() => o.remove(), 300); if (!mode) render(); };
+  }
+
+  // ---------- N5 への道（33週の地図・v9）----------
+  function weekNo() { const ms = new Date(todayStr() + 'T12:00:00') - new Date(ROAD.START + 'T12:00:00'); return Math.max(1, Math.min(33, Math.floor(ms / 86400000 / 7) + 1)); }
+  function stageOf(w) { return ROAD.STAGES.find((s) => w >= s.from && w <= s.to) || ROAD.STAGES[0]; }
+  function daysToExam() { return Math.max(0, Math.round((new Date(ROAD.EXAM + 'T12:00:00') - new Date(todayStr() + 'T12:00:00')) / 86400000)); }
+  function roadCard() {
+    const w = weekNo(); const s = stageOf(w); const c = ROAD.CURRICULUM[w - 1];
+    return `<button class="card road" id="roadBtn" style="--st:${s.color}">
+      <div class="road-top"><span class="road-chip">${s.icon} STAGE ${ROAD.STAGES.indexOf(s) + 1} · ${esc(s.en)} <span class="km">${esc(s.km)}</span></span><span class="road-exam">⏳ ${daysToExam()}<small class="km"> ${esc(T.daysLeft)} N5</small></span></div>
+      <div class="road-week"><b class="km">${esc(T.week)}${w}</b> <small class="dim">/ 33</small> · <small class="km dim">${esc(T.thisWeek)}</small></div>
+      <div class="road-theme">${esc([c[1], c[2], c[3]].filter(Boolean).join('・'))}</div>
+      <div class="road-go km">🗺️ ${esc(T.map)} ▶</div>
+    </button>`;
+  }
+  function renderMap() {
+    mode = 'map'; tabbar.style.display = 'none';
+    const w = weekNo(); let si = -1; let html = '';
+    ROAD.CURRICULUM.forEach((r) => {
+      const s = stageOf(r[0]); const idx = ROAD.STAGES.indexOf(s);
+      if (idx !== si) { si = idx; html += `<div class="mstage" style="--st:${s.color}">${s.icon} STAGE ${idx + 1} · ${esc(s.en)} <span class="km">${esc(s.km)}</span><small>${esc(s.ja)}</small></div>`; }
+      const here = r[0] === w; const past = r[0] < w;
+      html += `<div class="mwk ${here ? 'here' : ''} ${past ? 'past' : ''}" style="--st:${s.color}"><div class="m-dot">${here ? '🚗' : past ? '✓' : r[0]}</div><div class="m-txt"><b>${esc(r[1])}</b><small>${esc([r[2], r[3]].filter(Boolean).join(' · '))}</small>${r[4] ? `<em>🏁 ${esc(r[4])}</em>` : ''}</div></div>`;
+    });
+    app.innerHTML = `
+      <div class="top"><button class="x" id="quit">✕</button><b class="km map-title">🗺️ ${esc(T.map)}</b></div>
+      <div class="goalbar">🏆 JLPT N5 — ${ROAD.EXAM.replace(/-/g, '/')} · ⏳ ${daysToExam()}</div>
+      <div class="road-list">${html}</div>`;
+    document.getElementById('quit').onclick = quit;
+    window.scrollTo(0, 0);
+    const h = app.querySelector('.mwk.here'); if (h) setTimeout(() => h.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200);
+  }
 
   // ---------- 画面の切り替え ----------
   let tab = 'home';
@@ -332,6 +421,7 @@
 
   // ---------- ホーム ----------
   function missionStatus() { const d = day(); return d.m; }
+  const inKata = () => S.kanaRows > HIRA_ROWS; // カタカナの行に入ったか（v9）
   function todaysReal() {
     const idx = Math.max(0, Math.min(S.lesson, LESSONS.length) - 1);
     const id = S.lesson > 0 ? LESSONS[idx].real : 'g01';
@@ -343,10 +433,11 @@
     const pct = nb ? Math.round(((S.xp - b[0]) / (nb[0] - b[0])) * 100) : 100;
     const lesson = LESSONS[S.lesson];
     const real = todaysReal();
+    const kata = inKata();
     const rows = [
       [0, '📖', T.m1, lesson ? `${lesson.t}` : T.allLessonsDone, lesson ? lesson.tk : '', 'lesson'],
       [1, '🔁', T.m2, 'ふくしゅう', '', 'review'],
-      [2, 'あ', T.m3, 'ひらがな', '', 'kana'],
+      [2, kata ? 'ア' : 'あ', kata ? T.m3kata : T.m3, kata ? 'カタカナ' : 'ひらがな', '', 'kana'],
     ];
     const nextIdx = m.findIndex((x) => !x);
     app.innerHTML = `
@@ -365,6 +456,8 @@
           <small class="km dim">${nb ? `${esc(T.toNext)}: ${nb[0] - S.xp} XP` : esc(T.topDone)}</small>
         </div>
       </header>
+      ${roadCard()}
+      <section class="card t30 ${d.t30 ? 'ok' : ''}" id="t30">${t30Inner()}</section>
       <section class="card mission ${d.done ? 'clear' : ''}">
         <h2 class="km">🎯 ${esc(T.todayMission)} <span class="count">${m.filter(Boolean).length}/3</span></h2>
         ${d.done ? `<div class="clear-banner"><div class="big">🏆</div><b class="km">${esc(T.missionClear)}</b><small class="km">${esc(T.missionClearSub)}</small></div>` : ''}
@@ -374,6 +467,9 @@
             <span class="mtx"><b class="km">${esc(km)}</b><small>${esc(jp)}${sub ? ` · <span class="km">${esc(sub)}</span>` : ''}</small></span>
             <span class="go">${m[i] ? '' : '▶'}</span>
           </button>`).join('')}
+        ${d.done && !d.t30 ? `<div class="more"><b class="km">⏱ ${esc(T.moreStudy)}</b>
+          <button class="btn primary" id="moreLesson">📖 ${esc(T.nextLesson)} ▶</button>
+          <button class="btn" id="moreGames">🎮 ${esc(T.games)} ▶</button></div>` : ''}
       </section>
       <section class="card real ${d.real ? 'ok' : ''}">
         <h2 class="km">🗣️ ${esc(T.realTitle)}</h2>
@@ -384,11 +480,14 @@
       </section>
       <section class="card goal">
         <div class="km">🎌 ${esc(T.goal)}</div>
-        <small class="dim">ひらがな ${learnedKana().length}/${KANA.length} · ことば ${learnedWords().length}/${WORDS.length} · レッスン ${Math.min(S.lesson, LESSONS.length)}/${LESSONS.length}</small>
+        <small class="dim">かな ${learnedKana().length}/${KANA.length} · ことば ${learnedWords().length}/${WORDS.length} · レッスン ${Math.min(S.lesson, LESSONS.length)}/${LESSONS.length}</small>
       </section>
       <p class="km note">${esc(T.offlineNote)}</p>
       <div id="sync" class="sync"></div>`;
     app.querySelectorAll('.mrow').forEach((el) => (el.onclick = () => startMission(el.dataset.act)));
+    document.getElementById('roadBtn').onclick = () => { sfx.tap(); renderMap(); };
+    const ml = document.getElementById('moreLesson'); if (ml) ml.onclick = () => { sfx.tap(); startLesson(); };
+    const mg = document.getElementById('moreGames'); if (mg) mg.onclick = () => setTab('games');
     app.querySelectorAll('[data-say]').forEach((el) => (el.onclick = () => speak(el.dataset.say)));
     const rd = document.getElementById('realDone');
     if (rd) rd.onclick = () => { const dd = day(); if (dd.real) return; dd.real = true; S.real++; addXP(XP.real); logEvent('real', { id: real.id, jp: real.jp }); checkBadges(); save(); sfx.win(); confetti(25); render(); };
@@ -506,7 +605,7 @@
     if (!pool.length) return startKana(asMission);
     let items = focus ? focus.concat(pick(pool.filter((k) => !focus.includes(k)), 3)) : dueFirst(pool).slice(0, 8);
     items = shuffle(items);
-    runQuiz({ title: 'ひらがな', game: 'kana', questions: items.map((k) => kanaQ(k, Math.random() < 0.55 ? 'kana' : 'kanaListen')), onDone: () => { if (asMission) completeMission(2); } });
+    runQuiz({ title: inKata() ? 'カタカナ' : 'ひらがな', game: 'kana', questions: items.map((k) => kanaQ(k, Math.random() < 0.55 ? 'kana' : 'kanaListen')), onDone: () => { if (asMission) completeMission(2); } });
   }
 
   // ---------- 問題をつくる ----------
@@ -633,7 +732,7 @@
       ['listen', '🔊', T.gListen, 'きいて えらぶ', has],
       ['read', '👀', T.gRead, 'よんで えらぶ', has],
       ['reverse', '🇰🇭➡️🇯🇵', T.gReverse, 'クメールご → にほんご', has],
-      ['kana', 'あ', T.gKana, 'ひらがな', true],
+      ['kana', 'あア', T.gKana2, 'ひらがな・カタカナ', true],
       ['book', '📋', MENU_BOOK.title, 'メニュー ずかん', true],
       ['menu', '🚗', T.gMenu, 'メニュー・ねだん', true],
       ['speak', '🎤', T.gSpeak, 'まねして いおう', has],
@@ -732,7 +831,6 @@
     let a = 0; let o = 0; let sec = 0;
     for (let i = 0; i < 7; i++) { const d = S.days[addDays(t, -i)]; if (d) { a += d.ans; o += d.ok; } }
     Object.values(S.days).forEach((d) => { sec += d.sec || 0; });
-    if (sessStart) sec += Math.round((Date.now() - sessStart) / 1000);
     const acc = a ? Math.round((o / a) * 100) : 0;
     // 28日カレンダー（日曜はじまり・4週）
     const start = (() => { const d = new Date(t + 'T12:00:00'); d.setDate(d.getDate() - 21 - d.getDay()); return todayStr(d); })();
@@ -759,6 +857,11 @@
         <div class="belts">${BELTS.map((b, j) => `<div class="beltline ${j <= bi ? 'got' : 'locked'}"><img class="garage-car" src="${carSrc(j)}" alt="" loading="lazy"><span>${j <= bi ? esc(b[1]) : '？？？'}<br><small class="km">${j <= bi ? esc(b[2]) : ''}</small></span><small>${b[0]} XP</small></div>`).join('')}</div>
       </section>
       <section class="card">
+        <h2 class="km">🚗 ${esc(T.carBook)} <span class="count">${(S.carCards || []).length}/${CAR_CARDS.length}</span></h2>
+        <div class="ccgrid">${CAR_CARDS.map((c, j) => (S.carCards || []).includes(j) ? `<button class="ccell" data-cc="${j}"><span>${c[0]}</span><small>${esc(c[1])}</small></button>` : `<div class="ccell lock"><span>❔</span><small>#${j + 1}</small></div>`).join('')}</div>
+        <small class="km dim">🎁 ${esc(T.get30)}</small>
+      </section>
+      <section class="card">
         <h2 class="km">${esc(T.calendar)}</h2>
         <div class="calgrid">${T.weekDays.map((w) => `<div class="cal head km">${esc(w)}</div>`).join('')}${cells.join('')}</div>
       </section>
@@ -769,6 +872,7 @@
       ${weak.length ? `<section class="card"><h2 class="km">🎯 ${esc(T.weak)}</h2>${weak.map((w) => `<button class="weakrow" data-say="${esc(ttsOf(w))}"><b>🔊 ${esc(fill(w.jp))}</b><span class="km">${esc(fill(w.km))}</span><small>❌${card(w.id).w}</small></button>`).join('')}</section>` : ''}
       <div id="sync" class="sync"></div>`;
     app.querySelectorAll('[data-say]').forEach((el) => (el.onclick = () => speak(el.dataset.say)));
+    app.querySelectorAll('[data-cc]').forEach((el) => (el.onclick = () => showCarCard(+el.dataset.cc, false)));
   }
 
   // ---------- せってい ----------
