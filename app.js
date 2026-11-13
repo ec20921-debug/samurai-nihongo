@@ -4,7 +4,7 @@
 (() => {
   'use strict';
   const CFG = window.SNH_CONFIG || {};
-  const VERSION = '1.1.0'; // v9: N5 への道・1日30分・カタカナ・車カード・端末の登録
+  const VERSION = '1.2.0'; // v11: 15分/30分・つづける・遊び4つ・濁音・エール（v9: N5 への道・カタカナ・車カード・端末の登録）
   const LS_KEY = 'snh_state_v1';
   const Q_KEY = 'snh_queue_v1';
   const app = document.getElementById('app');
@@ -235,7 +235,7 @@
       kana: learnedKana().length, kanaMastered: mastered(learnedKana()).length, kanaTotal: KANA.length,
       hira: mastered(learnedKana().filter((k) => k.row < HIRA_ROWS)).length, kata: mastered(learnedKana().filter((k) => k.row >= HIRA_ROWS)).length,
       hiraTotal: KANA.filter((k) => k.row < HIRA_ROWS).length, kataTotal: KANA.filter((k) => k.row >= HIRA_ROWS).length,
-      week: weekNo(), stage: stageOf(weekNo()).en, dailyMin: DAILY_MIN, carCards: (S.carCards || []).length,
+      week: weekNo(), stage: stageOf(weekNo()).en, dailyMin: DAILY_MIN, carCards: (S.carCards || []).length, stars: S.stars || 0, minOk: MIN_OK, kaiwa: Object.keys(S.kaiwa || {}).length, kaiwaTotal: KAIWA.length, best: S.best || {},
       weak: weakWords().slice(0, 5).map((w) => [w.jp, w.km, card(w.id).c, card(w.id).w]),
       real: S.real, badges: Object.keys(S.badges),
       days,
@@ -292,30 +292,39 @@
     if (document.hidden || !S.welcomed || Date.now() - lastTouch > 60 * 1000) return;
     actSec += 5; day().sec += 5;
     if (actSec % 60 === 0) save();
-    check30();
+    checkTime();
     const el = document.getElementById('t30'); if (el) el.innerHTML = t30Inner();
   }, 5000);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) sessionEnd(); else render(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) sessionEnd(); else { render(); fetchCheers(); } });
   window.addEventListener('pagehide', sessionEnd);
   setInterval(() => { if (actSec >= 300) sessionEnd(); }, 60 * 1000);
 
-  // ---------- 1日30分・車カード（v9）----------
-  function check30() {
-    const d = day();
-    if (d.t30 || (d.sec || 0) < DAILY_MIN * 60) return;
-    d.t30 = true; addXP(XP_30); logEvent('t30', { min: DAILY_MIN });
-    save(); sfx.win(); confetti(60);
-    setTimeout(giveCarCard, 800);
+  // ---------- 1日の時間（v11）: 15分で「今日はクリア」＝車カード／30分で ⭐ ボーナス ----------
+  let pendingCard = false; // 遊びの途中でカードが出ないよう、区切りの画面まで待つ
+  function checkTime() {
+    const d = day(); const s = d.sec || 0;
+    if (!d.t15 && s >= MIN_OK * 60) {
+      d.t15 = true; addXP(XP_15); logEvent('t15', { min: MIN_OK });
+      save(); sfx.win(); confetti(60);
+      setTimeout(giveCarCard, 800);
+    }
+    if (!d.t30 && s >= DAILY_MIN * 60) {
+      d.t30 = true; S.stars = (S.stars || 0) + 1; addXP(XP_30); logEvent('t30', { min: DAILY_MIN, stars: S.stars });
+      save(); sfx.win(); confetti(80);
+      toast(`⭐ <span class="km">${esc(T.done30)}</span>`, 3500);
+    }
   }
   function t30Inner() {
     const d = day(); const min = Math.floor((d.sec || 0) / 60);
     const pct = Math.min(100, Math.round((min / DAILY_MIN) * 100));
-    return `<div class="t30-row"><b class="km">⏱ ${esc(T.todayTime)}</b><span class="t30-num">${min} <small>/ ${DAILY_MIN} min</small></span></div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <small class="km ${d.t30 ? 'okline' : 'dim'}">${d.t30 ? '🏆 ' + esc(T.done30) : '🎁 ' + esc(T.get30)}</small>`;
+    const msg = d.t30 ? '⭐ ' + esc(T.done30) : d.t15 ? '✅ ' + esc(T.done15) + '<br>' + esc(T.bonus30) : '🎁 ' + esc(T.get15);
+    return `<div class="t30-row"><b class="km">⏱ ${esc(T.todayTime)}</b><span class="t30-num">${min} <small>/ ${d.t15 ? DAILY_MIN : MIN_OK} min</small></span></div>
+      <div class="bar tbar"><i style="width:${pct}%"></i><span class="tmark ${d.t15 ? 'on' : ''}" style="left:50%">🎁</span><span class="tmark end ${d.t30 ? 'on' : ''}">⭐</span></div>
+      <small class="km ${d.t15 ? 'okline' : 'dim'}">${msg}</small>`;
   }
   function giveCarCard() {
     const d = day(); if (d.card != null) return;
+    if (mode && mode !== 'end') { pendingCard = true; return; }
     S.carCards = S.carCards || [];
     if (S.carCards.length >= CAR_CARDS.length) { d.card = -1; save(); toast(esc(T.carsAll), 3000); return; }
     const idx = S.carCards.length; S.carCards.push(idx); d.card = idx; save();
@@ -395,6 +404,7 @@
     else if (tab === 'record') renderRecord();
     else renderSettings();
     syncLabel();
+    if (pendingCard) { pendingCard = false; setTimeout(giveCarCard, 500); }
   }
 
   // ---------- はじめての画面 ----------
@@ -445,7 +455,8 @@
         <div class="hi km">${esc(T.hello)} ${esc(S.name || '')} 👋</div>
         <div class="stats">
           <div class="stat"><b>🔥 ${st}</b><small class="km">${esc(T.streak)}</small></div>
-          <div class="stat"><b>⭐ ${S.xp}</b><small class="km">${esc(T.xp)}</small></div>
+          <div class="stat"><b>💎 ${S.xp}</b><small class="km">${esc(T.xp)}</small></div>
+          <div class="stat"><b>⭐ ${S.stars || 0}</b><small class="km">${esc(T.stars)}</small></div>
           <div class="stat"><b>📗 ${learnedWords().length}</b><small class="km">${esc(T.words)}</small></div>
         </div>
         <div class="belt">
@@ -455,8 +466,9 @@
           <small class="km dim">${nb ? `${esc(T.toNext)}: ${nb[0] - S.xp} XP` : esc(T.topDone)}</small>
         </div>
       </header>
-      ${roadCard()}
-      <section class="card t30 ${d.t30 ? 'ok' : ''}" id="t30">${t30Inner()}</section>
+      ${cheerCard()}
+      <section class="card t30 ${d.t15 ? 'ok' : ''}" id="t30">${t30Inner()}</section>
+      <button class="btn primary contbtn" id="contBtn">▶ ${esc(T.cont)}</button>
       <section class="card mission ${d.done ? 'clear' : ''}">
         <h2 class="km">🎯 ${esc(T.todayMission)} <span class="count">${m.filter(Boolean).length}/3</span></h2>
         ${d.done ? `<div class="clear-banner"><div class="big">🏆</div><b class="km">${esc(T.missionClear)}</b><small class="km">${esc(T.missionClearSub)}</small></div>` : ''}
@@ -466,9 +478,6 @@
             <span class="mtx"><b class="km">${esc(km)}</b><small>${esc(jp)}${sub ? ` · <span class="km">${esc(sub)}</span>` : ''}</small></span>
             <span class="go">${m[i] ? '' : '▶'}</span>
           </button>`).join('')}
-        ${d.done && !d.t30 ? `<div class="more"><b class="km">⏱ ${esc(T.moreStudy)}</b>
-          <button class="btn primary" id="moreLesson">📖 ${esc(T.nextLesson)} ▶</button>
-          <button class="btn" id="moreGames">🎮 ${esc(T.games)} ▶</button></div>` : ''}
       </section>
       <section class="card real ${d.real ? 'ok' : ''}">
         <h2 class="km">🗣️ ${esc(T.realTitle)}</h2>
@@ -477,6 +486,7 @@
         <p class="km dim">${esc(fill(real.km))}</p>
         ${d.real ? `<div class="okline">✅ +${XP.real} XP</div>` : `<button class="btn" id="realDone">${esc(T.realDone)} (+${XP.real} XP)</button>`}
       </section>
+      ${roadCard()}
       <section class="card goal">
         <div class="km">🎌 ${esc(T.goal)}</div>
         <small class="dim">かな ${learnedKana().length}/${KANA.length} · ことば ${learnedWords().length}/${WORDS.length} · レッスン ${Math.min(S.lesson, LESSONS.length)}/${LESSONS.length}</small>
@@ -485,8 +495,8 @@
       <div id="sync" class="sync"></div>`;
     app.querySelectorAll('.mrow').forEach((el) => (el.onclick = () => startMission(el.dataset.act)));
     document.getElementById('roadBtn').onclick = () => { sfx.tap(); renderMap(); };
-    const ml = document.getElementById('moreLesson'); if (ml) ml.onclick = () => { sfx.tap(); startLesson(); };
-    const mg = document.getElementById('moreGames'); if (mg) mg.onclick = () => setTab('games');
+    document.getElementById('contBtn').onclick = () => { sfx.tap(); nextUp(); };
+    const cb = document.getElementById('cheerBtn'); if (cb) cb.onclick = cheerTap;
     app.querySelectorAll('[data-say]').forEach((el) => (el.onclick = () => speak(el.dataset.say)));
     const rd = document.getElementById('realDone');
     if (rd) rd.onclick = () => { const dd = day(); if (dd.real) return; dd.real = true; S.real++; addXP(XP.real); logEvent('real', { id: real.id, jp: real.jp }); checkBadges(); save(); sfx.win(); confetti(25); render(); };
@@ -511,6 +521,7 @@
   // ---------- ① レッスン（見る → 聞く → まねする → クイズ） ----------
   function startLesson() {
     const L = LESSONS[S.lesson];
+    if (L && day().m[0] && (day().les || 0) >= LESSON_CAP) { toast(esc(T.lessonCap), 2600); return; }
     if (!L) { toast(esc(T.allLessonsDone)); return startReview(true, true); }
     const ids = L.ids.filter((id) => WMAP[id]);
     let i = 0;
@@ -556,7 +567,7 @@
       runQuiz({
         title: L.t, game: 'lesson', questions: shuffle(qs),
         onDone: (r) => {
-          S.lesson++;
+          S.lesson++; day().les = (day().les || 0) + 1;
           addXP(XP.lesson);
           logEvent('lesson', { lesson: S.lesson, title: L.t, ok: r.ok, total: r.total });
           completeMission(0);
@@ -629,7 +640,8 @@
   function kanaQ(k, type) {
     const others = shuffle(KANA.filter((x) => x.id !== k.id && x.ro !== k.ro && x.say !== k.say));
     const near = others.filter((x) => x.row === k.row || learned(x.id));
-    const opts = shuffle([k].concat((near.length >= 3 ? near : others).slice(0, 3)));
+    const uniq = []; (near.length >= 3 ? near.concat(others) : others).forEach((x) => { if (uniq.length < 3 && !uniq.some((u) => u.ro === x.ro || u.say === x.say)) uniq.push(x); });
+    const opts = shuffle([k].concat(uniq));
     if (type === 'kanaListen') return { type, id: k.id, jp: k.c, tts: k.c, auto: true, prompt: `<div class="qlabel km">${esc(T.qKanaListen)}</div><button class="say-btn huge" data-replay>🔊</button>`, choices: opts.map((x) => ({ html: `<b class="kana-big">${esc(x.c)}</b>`, ok: x.id === k.id })) };
     return { type: 'kana', id: k.id, jp: k.c, tts: k.c, prompt: `<div class="qlabel km">${esc(T.qKana)}</div><div class="kana-huge">${esc(k.c)}</div>`, choices: opts.map((x) => ({ html: `<span class="km">${esc(x.say)}</span><small>${esc(x.ro)}</small>`, ok: x.id === k.id })) };
   }
@@ -714,20 +726,320 @@
           <div class="score">${firstTry} / ${total}</div>
           <div class="xpgain">+${gained} XP${maxCombo >= 3 ? ` · 🔥${maxCombo}` : ''}</div>
           ${perfect ? '<div class="perfect">💯 PERFECT!</div>' : ''}
-          <button class="btn primary" id="home">${esc(T.home)} ▶</button>
-          <button class="btn" id="again">🔁 ${esc(T.again)}</button>
+          <button class="btn primary" id="go">▶ ${esc(T.cont)}</button>
+          <button class="btn" id="home">${esc(T.home)}</button>
         </div>`;
       document.getElementById('home').onclick = () => { mode = null; tab = 'home'; render(); };
-      document.getElementById('again').onclick = () => runQuiz({ title, game, questions: shuffle(questions), onDone: null });
+      document.getElementById('go').onclick = () => { mode = null; nextUp(); };
+      mode = 'end';
+      if (pendingCard) { pendingCard = false; setTimeout(giveCarCard, 600); }
     };
     ask();
   }
   function quit() { if (window.speechSynthesis) speechSynthesis.cancel(); mode = null; render(); }
 
   // ---------- ゲーム ----------
+  // =====================================================================
+  // v11（2026-11-13）: つづける・60秒ラッシュ・カードあわせ・なぞって書く・かいわ・エール
+  // ねらい: 字を読んで選ばなくても、ボタン1つで次の遊びが出る。15分で「今日はクリア」、30分で ⭐
+  // =====================================================================
+  const LESSON_CAP = 2; // 1日に進める新しいレッスンの上限（詰め込みすぎず、教材が長もちするように）
+  function countAct(k) { const d = day(); d.act = d.act || {}; d.act[k] = (d.act[k] || 0) + 1; d.last = k; }
+  function playable() {
+    const w = learnedWords().length; const k = learnedKana().length;
+    const out = [];
+    if (w + k >= 5) out.push('rush');
+    out.push('kaiwa');
+    if (w + k >= 6) out.push('match');
+    if (k >= 1) out.push('write');
+    if (LESSONS[S.lesson] && (day().les || 0) < LESSON_CAP) out.push('lesson');
+    if (w >= 5) out.push('listen');
+    return out;
+  }
+  // 次にやること: ミッションが残っていればそれ。終わっていれば、今日まだ少ない遊びから順に
+  function nextUp() {
+    const d = day(); const i = d.m.findIndex((x) => !x);
+    if (i >= 0) startMission(['lesson', 'review', 'kana'][i]);
+    else {
+      const a = d.act || {};
+      let list = playable().filter((k) => k !== d.last);
+      if (!list.length) list = playable();
+      list = list.map((k, j) => [k, j]).sort((x, y) => ((a[x[0]] || 0) - (a[y[0]] || 0)) || (x[1] - y[1])).map((x) => x[0]);
+      startGame(list[0]);
+    }
+    if (!mode) render();
+  }
+  function endScreen(icon, big, sub) {
+    mode = 'end'; tabbar.style.display = 'none';
+    checkBadges(); save();
+    app.innerHTML = `
+      <div class="result">
+        <div class="stars">${icon}</div>
+        <div class="score">${big}</div>
+        <div class="xpgain km">${sub || ''}</div>
+        <button class="btn primary" id="go">▶ ${esc(T.cont)}</button>
+        <button class="btn" id="home">${esc(T.home)}</button>
+      </div>`;
+    document.getElementById('go').onclick = () => { mode = null; nextUp(); };
+    document.getElementById('home').onclick = () => { mode = null; tab = 'home'; render(); };
+    if (pendingCard) { pendingCard = false; setTimeout(giveCarCard, 600); }
+  }
+  // 遊びの材料（ことば＋かな）: q=日本語, a=答え（クメール語の意味／読み方）
+  function playPool() {
+    return learnedWords().map((w) => ({ id: w.id, q: fill(w.jp), a: fill(w.km), sub: '', say: ttsOf(w), kana: false }))
+      .concat(learnedKana().map((k) => ({ id: k.id, q: k.c, a: k.say, sub: k.ro, say: k.c, kana: true })));
+  }
+
+  // ---------- ⚡ 60秒ラッシュ ----------
+  let rushTimer = null; let rushGen = 0;
+  function startRush() {
+    const pool = playPool();
+    if (pool.length < 5) { toast(esc(T.needLearn)); return; }
+    clearInterval(rushTimer);
+    mode = 'rush'; tabbar.style.display = 'none';
+    const gen = ++rushGen;
+    const end = Date.now() + 60000;
+    let score = 0; let n = 0; let combo = 0; let maxCombo = 0; let gained = 0; let over = false; let prev = null;
+    const fin = () => {
+      if (over) return; over = true; clearInterval(rushTimer);
+      S.best = S.best || {};
+      const isBest = score > (S.best.rush || 0);
+      if (isBest) S.best.rush = score;
+      logEvent('quiz', { game: 'rush', title: 'rush', ok: score, total: n, xp: gained, combo: maxCombo });
+      sfx.win(); if (isBest && score > 0) confetti(50);
+      endScreen('⚡', String(score), isBest && score > 0 ? '🏆 ' + esc(T.newBest) : esc(T.best) + ': ' + (S.best.rush || 0));
+    };
+    rushTimer = setInterval(() => {
+      if (mode !== 'rush') { clearInterval(rushTimer); return; }
+      const left = end - Date.now();
+      const b = document.getElementById('rbar'); if (b) b.style.width = Math.max(0, left / 600) + '%';
+      if (left <= 0) fin();
+    }, 200);
+    const ask = () => {
+      if (over || mode !== 'rush' || gen !== rushGen) return;
+      let cur = pick(pool, 1)[0]; if (prev && cur.id === prev.id) cur = pick(pool.filter((x) => x.id !== prev.id), 1)[0];
+      prev = cur;
+      const opts = shuffle([cur].concat(shuffle(pool.filter((x) => x.a !== cur.a && x.q !== cur.q)).slice(0, 2)));
+      app.innerHTML = `
+        <div class="top"><button class="x" id="quit">✕</button><div class="prog rush"><i id="rbar" style="width:${Math.max(0, (end - Date.now()) / 600)}%"></i></div><span class="pc">⚡${score}</span></div>
+        <div class="qbox rushq"><div class="${cur.kana ? 'kana-huge' : 'qjp'}">${esc(cur.q)}</div>${combo >= 3 ? `<div class="rcombo">🔥 ${combo}</div>` : ''}</div>
+        <div class="choices one">${opts.map((o, j) => `<button class="choice" data-j="${j}"><span class="km">${esc(o.a)}</span>${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</button>`).join('')}</div>`;
+      document.getElementById('quit').onclick = () => { clearInterval(rushTimer); quit(); };
+      let done = false;
+      app.querySelectorAll('.choice').forEach((el) => (el.onclick = () => {
+        if (done || over) return; done = true;
+        const right = opts[+el.dataset.j] === cur; const d = day(); d.ans++; n++;
+        if (right) { d.ok++; score++; combo++; maxCombo = Math.max(maxCombo, combo); addXP(3); gained += 3; sfx.ok(); el.classList.add('right'); }
+        else { combo = 0; card(cur.id).w++; sfx.ng(); el.classList.add('wrong'); app.querySelectorAll('.choice')[opts.indexOf(cur)].classList.add('right'); }
+        save();
+        setTimeout(ask, right ? 140 : 800);
+      }));
+    };
+    ask();
+  }
+
+  // ---------- 🃏 カードあわせ ----------
+  function startMatch() {
+    const pool = playPool();
+    const items = []; const seen = new Set();
+    shuffle(pool).forEach((x) => { if (items.length < 6 && !seen.has(x.a) && !seen.has(x.q)) { seen.add(x.a); seen.add(x.q); items.push(x); } });
+    if (items.length < 6) { toast(esc(T.needLearn)); return; }
+    mode = 'match'; tabbar.style.display = 'none';
+    const cards = shuffle(items.flatMap((it) => [
+      { k: it.id, jp: true, say: it.say, html: `<b class="${it.kana ? 'mk' : 'mw'}">${esc(it.q)}</b>` },
+      { k: it.id, jp: false, html: `<span class="km">${esc(it.a)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ''}` },
+    ]));
+    let open = []; let lock = false; let found = 0; let moves = 0; let gained = 0;
+    app.innerHTML = `
+      <div class="top"><button class="x" id="quit">✕</button><div class="prog"><i id="mbar" style="width:0%"></i></div><span class="pc">🃏</span></div>
+      <div class="mgrid">${cards.map((c, j) => `<button class="mcard ${c.jp ? 'jp' : ''}" data-j="${j}"><span class="mface">${c.html}</span><span class="mback">${c.jp ? 'あ' : 'ក'}</span></button>`).join('')}</div>`;
+    document.getElementById('quit').onclick = quit;
+    const els = app.querySelectorAll('.mcard');
+    els.forEach((el) => (el.onclick = () => {
+      const j = +el.dataset.j;
+      if (lock || el.classList.contains('up') || mode !== 'match') return;
+      el.classList.add('up'); sfx.tap();
+      if (cards[j].jp) speak(cards[j].say);
+      open.push(j);
+      if (open.length < 2) return;
+      moves++;
+      const [a, b] = open; open = [];
+      if (cards[a].k === cards[b].k && cards[a].jp !== cards[b].jp) {
+        found++; const d = day(); d.ans++; d.ok++; addXP(5); gained += 5; sfx.ok();
+        els[a].classList.add('ok'); els[b].classList.add('ok');
+        document.getElementById('mbar').style.width = (found / items.length) * 100 + '%';
+        save();
+        if (found === items.length) {
+          S.best = S.best || {};
+          const isBest = !S.best.match || moves < S.best.match;
+          if (isBest) S.best.match = moves;
+          addXP(10); gained += 10;
+          logEvent('quiz', { game: 'match', title: 'match', ok: items.length, total: moves, xp: gained });
+          setTimeout(() => { if (mode !== 'match') return; sfx.win(); confetti(40); endScreen('🃏', `${moves} 👆`, isBest ? '🏆 ' + esc(T.newBest) : esc(T.best) + ': ' + S.best.match + ' 👆'); }, 700);
+        }
+      } else {
+        lock = true;
+        setTimeout(() => { if (mode !== 'match') return; els[a].classList.remove('up'); els[b].classList.remove('up'); lock = false; }, 900);
+      }
+    }));
+  }
+
+  // ---------- ✍️ なぞって かく ----------
+  const JPFONT = "700 430px 'M PLUS Rounded 1c','Hiragino Maru Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif";
+  function startWrite() {
+    const pool = learnedKana();
+    if (!pool.length) { toast(esc(T.needLearn)); return; }
+    const items = shuffle(dueFirst(pool).slice(0, 8)).slice(0, 5);
+    mode = 'write'; tabbar.style.display = 'none';
+    let i = 0; let stars = 0; let gained = 0;
+    const SZ = 600;
+    const show = () => {
+      const k = items[i]; let tries = 0; let passed = false;
+      app.innerHTML = `
+        <div class="top"><button class="x" id="quit">✕</button><div class="prog"><i style="width:${(i / items.length) * 100}%"></i></div><span class="pc">${i + 1}/${items.length}</span></div>
+        <div class="whead"><button class="say-btn" id="wsay">🔊 ${esc(k.c)}</button><span class="km">${esc(k.say)}</span><small>${esc(k.ro)}</small></div>
+        <p class="km dim center">✍️ ${esc(T.writeHint)}</p>
+        <div class="wpad"><canvas id="wc" width="${SZ}" height="${SZ}"></canvas><div id="wfb" class="wfb"></div></div>
+        <div class="row3"><button class="say-btn" id="wclear">🧽 ${esc(T.clear)}</button><button class="say-btn" id="wskip">⏭ ${esc(T.skip)}</button></div>
+        <button class="btn primary" id="wcheck">✓ ${esc(T.check)}</button>`;
+      const cv = document.getElementById('wc'); const ctx = cv.getContext('2d');
+      const ink = document.createElement('canvas'); ink.width = ink.height = SZ; const ix = ink.getContext('2d');
+      ix.lineCap = 'round'; ix.lineJoin = 'round'; ix.lineWidth = 40; ix.strokeStyle = '#ffcf6b';
+      let ghost = 0.16;
+      const glyph = (c, color, stroke) => { c.font = JPFONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = color; c.fillText(k.c, SZ / 2, SZ / 2 + 20); if (stroke) { c.strokeStyle = color; c.lineWidth = stroke; c.lineJoin = 'round'; c.strokeText(k.c, SZ / 2, SZ / 2 + 20); } };
+      const paint = () => {
+        ctx.clearRect(0, 0, SZ, SZ);
+        ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 2; ctx.setLineDash([10, 10]);
+        ctx.beginPath(); ctx.moveTo(SZ / 2, 0); ctx.lineTo(SZ / 2, SZ); ctx.moveTo(0, SZ / 2); ctx.lineTo(SZ, SZ / 2); ctx.stroke(); ctx.setLineDash([]);
+        glyph(ctx, `rgba(255,255,255,${ghost})`);
+        ctx.drawImage(ink, 0, 0);
+      };
+      paint();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (mode === 'write') paint(); });
+      let drawing = false; let last = null;
+      const pos = (e) => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * (SZ / r.width), (e.clientY - r.top) * (SZ / r.height)]; };
+      cv.addEventListener('pointerdown', (e) => { e.preventDefault(); drawing = true; last = pos(e); ix.beginPath(); ix.arc(last[0], last[1], 20, 0, 7); ix.fillStyle = '#ffcf6b'; ix.fill(); paint(); });
+      cv.addEventListener('pointermove', (e) => { if (!drawing) return; e.preventDefault(); const p = pos(e); ix.beginPath(); ix.moveTo(last[0], last[1]); ix.lineTo(p[0], p[1]); ix.stroke(); last = p; paint(); });
+      const up = () => { drawing = false; };
+      cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('pointerleave', up);
+      const next = () => { if (mode !== 'write') return; if (++i < items.length) show(); else { logEvent('quiz', { game: 'write', title: 'write', ok: stars, total: items.length, xp: gained }); sfx.win(); if (stars >= 4) confetti(40); endScreen('✍️', `${stars} / ${items.length}`, `+${gained} XP`); } };
+      // 採点: お手本の線をどれだけなぞれたか（cover）と、はみ出し（spill）
+      const judge = () => {
+        const m1 = document.createElement('canvas'); m1.width = m1.height = SZ; glyph(m1.getContext('2d'), '#fff');
+        const m2 = document.createElement('canvas'); m2.width = m2.height = SZ; glyph(m2.getContext('2d'), '#fff', 70);
+        const g = m1.getContext('2d').getImageData(0, 0, SZ, SZ).data; const gw = m2.getContext('2d').getImageData(0, 0, SZ, SZ).data;
+        const u = ix.getImageData(0, 0, SZ, SZ).data;
+        let gN = 0; let hit = 0; let uN = 0; let out = 0;
+        for (let p = 3; p < g.length; p += 16) { // 4画素に1つ見る
+          const isG = g[p] > 100; const isU = u[p] > 100;
+          if (isG) { gN++; if (isU) hit++; }
+          if (isU) { uN++; if (gw[p] <= 100) out++; }
+        }
+        return { cover: gN ? hit / gN : 0, spill: uN ? out / uN : 1, any: uN > 30 };
+      };
+      document.getElementById('quit').onclick = quit;
+      document.getElementById('wsay').onclick = () => speak(k.c, 0.7);
+      document.getElementById('wclear').onclick = () => { ix.clearRect(0, 0, SZ, SZ); paint(); };
+      document.getElementById('wskip').onclick = () => { if (!passed) next(); };
+      document.getElementById('wcheck').onclick = () => {
+        if (passed || mode !== 'write') return;
+        const r = judge(); if (!r.any) return;
+        const fb = document.getElementById('wfb'); const d = day(); d.ans++;
+        if (r.cover >= 0.5 && r.spill <= 0.5) {
+          passed = true; d.ok++; stars++; card(k.id).c++; addXP(5); gained += 5; sfx.ok(); speak(k.c, 0.7);
+          fb.textContent = '⭕'; fb.className = 'wfb show ok'; save();
+          setTimeout(next, 900);
+        } else {
+          tries++; sfx.ng(); ghost = Math.min(0.5, ghost + 0.17);
+          fb.textContent = '💪'; fb.className = 'wfb show';
+          setTimeout(() => { if (mode !== 'write' || passed) return; fb.className = 'wfb'; ix.clearRect(0, 0, SZ, SZ); paint(); }, 700);
+          save();
+        }
+      };
+      setTimeout(() => speak(k.c, 0.7), 250);
+    };
+    show();
+  }
+
+  // ---------- 💬 かいわ（現場の場面で「なんと言う？」）----------
+  function startKaiwa(idx) {
+    S.kaiwa = S.kaiwa || {};
+    if (idx == null) { idx = 0; let min = Infinity; KAIWA.forEach((sc, j) => { const n = S.kaiwa[sc.id] || 0; if (n < min) { min = n; idx = j; } }); }
+    const sc = KAIWA[idx];
+    mode = 'kaiwa'; tabbar.style.display = 'none';
+    let t = 0; let ok = 0; let gained = 0;
+    const show = () => {
+      const turn = sc.turns[t]; const ans = WMAP[turn.a];
+      const opts = shuffle([ans].concat(turn.o.map((id) => WMAP[id]).filter(Boolean)));
+      let first = true;
+      app.innerHTML = `
+        <div class="top"><button class="x" id="quit">✕</button><div class="prog"><i style="width:${(t / sc.turns.length) * 100}%"></i></div><span class="pc">${t + 1}/${sc.turns.length}</span></div>
+        <div class="lesson-head"><small>💬 ${esc(T.gKaiwa)}</small><b>${esc(sc.t)}</b><span class="km">${esc(sc.tk)}</span></div>
+        ${turn.s ? `<button class="bubble" id="ksay"><span class="who">🧑‍🔧 <small class="km">${esc(T.senpai)}</small></span><b>🔊 ${esc(turn.s.jp)}</b><small>${esc(turn.s.ro)}</small><span class="km">${esc(turn.s.km)}</span></button>` : ''}
+        ${turn.sit ? `<div class="ksit km">📍 ${esc(turn.sit)}</div>` : ''}
+        <div class="qlabel km">🗣️ ${esc(T.kaiwaAsk)}</div>
+        <div class="choices one">${opts.map((o, j) => `<button class="choice" data-j="${j}"><b>${esc(fill(o.jp))}</b><small class="km">${esc(fill(o.km))}</small></button>`).join('')}</div>
+        <div id="fb" class="fb"></div>`;
+      document.getElementById('quit').onclick = quit;
+      const ks = document.getElementById('ksay'); if (ks) { ks.onclick = () => speak(turn.s.jp); setTimeout(() => speak(turn.s.jp), 300); }
+      let done = false;
+      app.querySelectorAll('.choice').forEach((el) => (el.onclick = () => {
+        if (done || el.disabled) return;
+        const o = opts[+el.dataset.j];
+        if (o.id !== ans.id) { first = false; sfx.ng(); el.classList.add('wrong'); el.disabled = true; card(ans.id).w++; return; }
+        done = true; el.classList.add('right'); sfx.ok(); speak(ttsOf(ans));
+        const d = day(); d.ans++;
+        if (first) { d.ok++; ok++; addXP(10); gained += 10; }
+        save();
+        app.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
+        document.getElementById('fb').innerHTML = `
+          <div class="flash small"><div class="jp">${esc(fill(ans.jp))}</div><div class="ro">${esc(fill(ans.ro))}</div><div class="say km">${esc(fill(ans.say))}</div></div>
+          <div class="row3"><button class="say-btn" id="kplay">🔊 ${esc(T.listen)}</button><button class="say-btn" id="kslow">🐢 ${esc(T.slow)}</button></div>
+          <button class="btn primary" id="ksaid">🎤 ${esc(T.saidIt)} ▶</button>`;
+        document.getElementById('kplay').onclick = () => speak(ttsOf(ans));
+        document.getElementById('kslow').onclick = () => speak(ttsOf(ans), 0.55);
+        document.getElementById('ksaid').onclick = () => {
+          if (++t < sc.turns.length) return show();
+          S.kaiwa[sc.id] = (S.kaiwa[sc.id] || 0) + 1;
+          logEvent('quiz', { game: 'kaiwa', title: sc.t, ok, total: sc.turns.length, xp: gained });
+          sfx.win(); if (ok === sc.turns.length) confetti(40);
+          endScreen('💬', `${ok} / ${sc.turns.length}`, `${esc(sc.tk)} · +${gained} XP`);
+        };
+        document.getElementById('ksaid').scrollIntoView({ block: 'end', behavior: 'smooth' });
+      }));
+    };
+    show();
+  }
+
+  // ---------- 💌 エール（日本人メンバーがシートに書く → ホームに出て、日本語で読み上げる）----------
+  async function fetchCheers() {
+    if (!CFG.GAS_URL || !navigator.onLine) return;
+    try {
+      const ctl = new AbortController(); const tmo = setTimeout(() => ctl.abort(), 12000);
+      const r = await fetch(CFG.GAS_URL + '?' + new URLSearchParams({ action: 'cheers', key: CFG.APP_KEY, dev: S.device }), { signal: ctl.signal });
+      clearTimeout(tmo);
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.cheers)) { S.cheers = j.cheers.slice(0, 3); save(); if (!mode && tab === 'home' && S.welcomed) render(); }
+    } catch (e) { /* 圏外など */ }
+  }
+  function cheerCard() {
+    const c = (S.cheers || [])[0]; if (!c || !c.text) return '';
+    return `<button class="card cheer ${S.cheerSeen === c.id ? '' : 'new'}" id="cheerBtn"><span class="ch-ico">💌</span><span class="ch-tx"><small class="km">${esc(T.cheerFrom)}${c.from ? ' · ' + esc(c.from) : ''}</small><b>${esc(c.text)}</b></span><span>🔊</span></button>`;
+  }
+  function cheerTap() {
+    const c = (S.cheers || [])[0]; if (!c) return;
+    speak(c.text, 0.8);
+    if (S.cheerSeen !== c.id) { S.cheerSeen = c.id; save(); logEvent('cheer_read', { id: c.id, from: c.from }); confetti(20); const el = document.getElementById('cheerBtn'); if (el) el.classList.remove('new'); }
+  }
+
   function renderGames() {
     const has = learnedWords().length > 0;
+    const pl = playable();
     const games = [
+      ['rush', '⚡', T.gRush, '60びょう ラッシュ', pl.includes('rush')],
+      ['kaiwa', '💬', T.gKaiwa, 'かいわ', true],
+      ['match', '🃏', T.gMatch, 'カードあわせ', pl.includes('match')],
+      ['write', '✍️', T.gWrite, 'なぞって かく', pl.includes('write')],
       ['listen', '🔊', T.gListen, 'きいて えらぶ', has],
       ['read', '👀', T.gRead, 'よんで えらぶ', has],
       ['reverse', '🇰🇭➡️🇯🇵', T.gReverse, 'クメールご → にほんご', has],
@@ -749,7 +1061,13 @@
   }
   function startGame(g) {
     sfx.tap();
+    countAct(g);
     const pool = learnedWords();
+    if (g === 'rush') return startRush();
+    if (g === 'match') return startMatch();
+    if (g === 'write') return startWrite();
+    if (g === 'kaiwa') return startKaiwa();
+    if (g === 'lesson') return startLesson();
     if (g === 'kana') return startKana(false);
     if (g === 'book') return renderMenuBook();
     if (g === 'menu') {
@@ -858,7 +1176,7 @@
       <section class="card">
         <h2 class="km">🚗 ${esc(T.carBook)} <span class="count">${(S.carCards || []).length}/${CAR_CARDS.length}</span></h2>
         <div class="ccgrid">${CAR_CARDS.map((c, j) => (S.carCards || []).includes(j) ? `<button class="ccell" data-cc="${j}"><span>${c[0]}</span><small>${esc(c[1])}</small></button>` : `<div class="ccell lock"><span>❔</span><small>#${j + 1}</small></div>`).join('')}</div>
-        <small class="km dim">🎁 ${esc(T.get30)}</small>
+        <small class="km dim">🎁 ${esc(T.get15)}</small>
       </section>
       <section class="card">
         <h2 class="km">${esc(T.calendar)}</h2>
@@ -903,7 +1221,8 @@
 
   // ---------- 起動 ----------
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
-  window.SNH = { S: () => S, snapshot, flush }; // 確認用
+  window.SNH = { S: () => S, snapshot, flush, nextUp, startGame }; // 確認用
   render();
   flushSoon();
+  fetchCheers();
 })();

@@ -265,3 +265,56 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 .cc-ja { margin: 8px auto 2px; }
 .cc-ro { font-size: 12px; }
 .cc-km { font-size: 14px; line-height: 1.7; }
+
+/* ---- v11: つづける・15分/30分・ラッシュ・カードあわせ・なぞり書き・かいわ・エール ---- */
+.stats { grid-template-columns: repeat(4, 1fr); }
+.stat b { font-size: 17px; }
+.contbtn { font-size: 22px; padding: 18px; margin-top: 14px; animation: contGlow 1.8s infinite; }
+@keyframes contGlow { 50% { box-shadow: 0 4px 0 #a86f12, 0 0 22px rgba(255,207,107,.55); } }
+.tbar { position: relative; overflow: visible; height: 12px; margin: 14px 0 12px; }
+.tbar i { border-radius: 6px; }
+.tmark { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 18px; filter: grayscale(1) opacity(.55); }
+.tmark.end { left: auto; right: -4px; transform: translate(0, -50%); }
+.tmark.on { filter: none; animation: pop .5s; }
+.choices.one { grid-template-columns: 1fr; }
+.choices.one .choice { min-height: 62px; }
+.choice[disabled] { opacity: .45; }
+.choice.right[disabled] { opacity: 1; }
+.prog.rush i { background: linear-gradient(90deg, #ff6b3d, #ffcf6b); transition: width .2s linear; }
+.rushq { min-height: 150px; position: relative; }
+.rcombo { position: absolute; top: 8px; right: 12px; color: #ff8c2b; font-weight: 800; font-size: 18px; animation: pop .3s; }
+.mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+.mcard { aspect-ratio: 1 / 1.05; border-radius: 16px; background: linear-gradient(160deg, #2a3a5c, #1b2438); border: 2px solid #36507a; color: inherit; display: flex; align-items: center; justify-content: center; padding: 4px; position: relative; transition: transform .15s; }
+.mcard.jp { background: linear-gradient(160deg, #4a3613, #2a2010); border-color: #8a6a2a; }
+.mcard:active { transform: scale(.95); }
+.mcard .mface { display: none; flex-direction: column; align-items: center; gap: 2px; text-align: center; line-height: 1.35; font-size: 14px; word-break: break-word; }
+.mcard .mback { font-size: 30px; opacity: .35; font-weight: 800; }
+.mcard.up { background: var(--panel); animation: pop .25s; }
+.mcard.up .mface { display: flex; }
+.mcard.up .mback { display: none; }
+.mcard.ok { border-color: var(--ok); background: #163826; opacity: .75; }
+.mcard .mk { font-size: 44px; }
+.mcard .mw { font-size: 17px; }
+.mcard small { color: var(--dim); font-size: 11px; }
+.whead { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 20px; }
+.whead small { color: var(--dim); }
+.wpad { position: relative; width: min(100%, 360px); aspect-ratio: 1; margin: 6px auto; border-radius: 22px; background: var(--panel); border: 2px solid var(--line); overflow: hidden; }
+.wpad canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.wfb { position: absolute; inset: 0; display: grid; place-items: center; font-size: 120px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.wfb.show { opacity: 1; animation: pop .35s; }
+.wfb.ok { background: rgba(22,56,38,.55); }
+.bubble { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; color: inherit; background: #24304a; border: 1px solid #36507a; border-radius: 6px 20px 20px 20px; padding: 12px 14px; margin: 12px 0 6px; }
+.bubble .who { font-size: 13px; color: var(--gold); }
+.bubble b { font-size: 22px; }
+.bubble small { color: var(--dim); }
+.ksit { background: rgba(255,181,71,.10); border: 1px dashed #8a6a2a; border-radius: 14px; padding: 10px 12px; margin: 8px 0; font-size: 17px; line-height: 1.7; }
+.flash.small { padding: 12px; margin: 8px 0; }
+.flash.small .jp { font-size: 24px; }
+.flash.small .say { margin-top: 4px; font-size: 17px; }
+.cheer { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; color: inherit; background: linear-gradient(120deg, #3a1d2a, #1d2434); border-color: #a04a6a; font-size: 22px; }
+.cheer .ch-tx { flex: 1; display: flex; flex-direction: column; font-size: 17px; }
+.cheer small { color: #ff9ab8; font-size: 12px; }
+.cheer.new { animation: contGlow 1.6s infinite; }
+.hero-car { width: 44%; max-width: 170px; }
+.contbtn { margin: 4px 0 2px; }
+.wpad canvas { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
