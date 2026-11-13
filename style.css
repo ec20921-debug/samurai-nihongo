@@ -318,3 +318,17 @@ input { width: 100%; font: inherit; font-size: 18px; padding: 12px; border-radiu
 .hero-car { width: 44%; max-width: 170px; }
 .contbtn { margin: 4px 0 2px; }
 .wpad canvas { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ---- v12: 今日はここまで → 感想 ---- */
+.endbtn { margin-top: 8px; background: transparent; border: 1px dashed #5b6680; color: var(--dim); font-size: 15px; padding: 11px; }
+.fbsum { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; text-align: center; display: flex; flex-direction: column; gap: 6px; }
+.fbnums { display: flex; justify-content: center; gap: 16px; font-size: 19px; font-weight: 800; color: var(--gold); }
+.moods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mood { background: var(--panel2); border: 2px solid var(--line); border-radius: 18px; padding: 12px 4px; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 44px; }
+.mood small { font-size: 14px; }
+.mood.on { border-color: var(--gold); background: #3b2f12; animation: pop .3s; }
+.fbtags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.fbtag { background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: 9px 14px; color: inherit; font-size: 15px; }
+.fbtag.on { border-color: var(--ok); background: #163826; }
+.fbtext { width: 100%; margin-top: 12px; background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; color: var(--tx); font-size: 17px; line-height: 1.7; }
+.btn[disabled] { opacity: .4; }

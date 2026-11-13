@@ -4,7 +4,7 @@
 (() => {
   'use strict';
   const CFG = window.SNH_CONFIG || {};
-  const VERSION = '1.2.0'; // v11: 15分/30分・つづける・遊び4つ・濁音・エール（v9: N5 への道・カタカナ・車カード・端末の登録）
+  const VERSION = '1.3.0'; // v11: 15分/30分・つづける・遊び4つ・濁音・エール（v9: N5 への道・カタカナ・車カード・端末の登録）
   const LS_KEY = 'snh_state_v1';
   const Q_KEY = 'snh_queue_v1';
   const app = document.getElementById('app');
@@ -469,6 +469,7 @@
       ${cheerCard()}
       <section class="card t30 ${d.t15 ? 'ok' : ''}" id="t30">${t30Inner()}</section>
       <button class="btn primary contbtn" id="contBtn">▶ ${esc(T.cont)}</button>
+      <button class="btn endbtn" id="endBtn">🏁 <span class="km">${esc(T.endBtn)}</span></button>
       <section class="card mission ${d.done ? 'clear' : ''}">
         <h2 class="km">🎯 ${esc(T.todayMission)} <span class="count">${m.filter(Boolean).length}/3</span></h2>
         ${d.done ? `<div class="clear-banner"><div class="big">🏆</div><b class="km">${esc(T.missionClear)}</b><small class="km">${esc(T.missionClearSub)}</small></div>` : ''}
@@ -496,6 +497,7 @@
     app.querySelectorAll('.mrow').forEach((el) => (el.onclick = () => startMission(el.dataset.act)));
     document.getElementById('roadBtn').onclick = () => { sfx.tap(); renderMap(); };
     document.getElementById('contBtn').onclick = () => { sfx.tap(); nextUp(); };
+    document.getElementById('endBtn').onclick = () => { sfx.tap(); renderEnd(); };
     const cb = document.getElementById('cheerBtn'); if (cb) cb.onclick = cheerTap;
     app.querySelectorAll('[data-say]').forEach((el) => (el.onclick = () => speak(el.dataset.say)));
     const rd = document.getElementById('realDone');
@@ -727,10 +729,12 @@
           <div class="xpgain">+${gained} XP${maxCombo >= 3 ? ` · 🔥${maxCombo}` : ''}</div>
           ${perfect ? '<div class="perfect">💯 PERFECT!</div>' : ''}
           <button class="btn primary" id="go">▶ ${esc(T.cont)}</button>
+          <button class="btn" id="fin">🏁 <span class="km">${esc(T.endBtn)}</span></button>
           <button class="btn" id="home">${esc(T.home)}</button>
         </div>`;
       document.getElementById('home').onclick = () => { mode = null; tab = 'home'; render(); };
       document.getElementById('go').onclick = () => { mode = null; nextUp(); };
+      document.getElementById('fin').onclick = () => { sfx.tap(); renderEnd(); };
       mode = 'end';
       if (pendingCard) { pendingCard = false; setTimeout(giveCarCard, 600); }
     };
@@ -778,9 +782,11 @@
         <div class="score">${big}</div>
         <div class="xpgain km">${sub || ''}</div>
         <button class="btn primary" id="go">▶ ${esc(T.cont)}</button>
+        <button class="btn" id="fin">🏁 <span class="km">${esc(T.endBtn)}</span></button>
         <button class="btn" id="home">${esc(T.home)}</button>
       </div>`;
     document.getElementById('go').onclick = () => { mode = null; nextUp(); };
+    document.getElementById('fin').onclick = () => { sfx.tap(); renderEnd(); };
     document.getElementById('home').onclick = () => { mode = null; tab = 'home'; render(); };
     if (pendingCard) { pendingCard = false; setTimeout(giveCarCard, 600); }
   }
@@ -1030,6 +1036,46 @@
     const c = (S.cheers || [])[0]; if (!c) return;
     speak(c.text, 0.8);
     if (S.cheerSeen !== c.id) { S.cheerSeen = c.id; save(); logEvent('cheer_read', { id: c.id, from: c.from }); confetti(20); const el = document.getElementById('cheerBtn'); if (el) el.classList.remove('new'); }
+  }
+
+  // ---------- 🏁 今日はここまで → 感想と要望（v12）----------
+  // 細切れに何回やってもよい。押すたびに、その時点までの記録を送り、感想を1つもらう（書かなくても終われる）
+  function renderEnd() {
+    mode = 'fb'; tabbar.style.display = 'none';
+    const d = day(); const min = Math.floor((d.sec || 0) / 60);
+    let mood = ''; const tags = new Set();
+    app.innerHTML = `
+      <div class="top"><button class="x" id="quit">✕</button><b class="km map-title">🏁 ${esc(T.endBtn)}</b></div>
+      <div class="fbsum"><b class="km">${esc(T.endTitle)}</b>
+        <div class="fbnums"><span>⏱ ${min} min</span><span>💎 +${d.xp || 0}</span><span>🔥 ${streak()}</span></div>
+        <small class="km dim">💾 ${esc(T.fbSaved)}</small></div>
+      <h2 class="km center">${esc(T.howWas)}</h2>
+      <div class="moods">${FB_MOODS.map(([id, ic, km]) => `<button class="mood" data-m="${id}"><span>${ic}</span><small class="km">${esc(km)}</small></button>`).join('')}</div>
+      <p class="km dim center">${esc(T.fbTags)}</p>
+      <div class="fbtags">${FB_TAGS.map(([id, ic, km]) => `<button class="fbtag km" data-t="${id}">${ic} ${esc(km)}</button>`).join('')}</div>
+      <textarea id="fbText" class="fbtext km" maxlength="400" rows="3" placeholder="${esc(T.fbHint)}"></textarea>
+      <button class="btn primary" id="fbSend" disabled>📨 ${esc(T.send)}</button>`;
+    document.getElementById('quit').onclick = quit;
+    const send = document.getElementById('fbSend');
+    app.querySelectorAll('.mood').forEach((el) => (el.onclick = () => { mood = el.dataset.m; sfx.tap(); app.querySelectorAll('.mood').forEach((x) => x.classList.toggle('on', x === el)); send.disabled = false; }));
+    app.querySelectorAll('.fbtag').forEach((el) => (el.onclick = () => { const t = el.dataset.t; if (tags.has(t)) tags.delete(t); else tags.add(t); el.classList.toggle('on', tags.has(t)); sfx.tap(); }));
+    send.onclick = () => {
+      if (!mood || mode !== 'fb') return;
+      const text = (document.getElementById('fbText').value || '').trim().slice(0, 400);
+      d.fb = (d.fb || 0) + 1;
+      logEvent('feedback', { mood, tags: [...tags], text, min, xpDay: d.xp || 0, lesson: S.lesson, kanaRows: S.kanaRows });
+      save(); sessionEnd();
+      sfx.win(); confetti(40); speak('おつかれさまでした');
+      mode = 'end';
+      app.innerHTML = `
+        <div class="result">
+          <div class="stars">🙏</div>
+          <div class="score">おつかれさま<br>でした</div>
+          <div class="xpgain km">${esc(T.fbThanks)}</div>
+          <button class="btn primary" id="home">${esc(T.home)}</button>
+        </div>`;
+      document.getElementById('home').onclick = () => { mode = null; tab = 'home'; render(); };
+    };
   }
 
   function renderGames() {
